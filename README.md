@@ -51,7 +51,7 @@ Concrete workflows with copy-paste prompts shown side-by-side for both tools. In
 ## Quick start
 
 ```bash
-git clone https://github.com/<you>/llm-cli-playbook
+git clone https://github.com/choreogrifi/knowledge-llm-cli-playbook
 ```
 
 Both documents are standalone Markdown. No toolchain required. Open in any editor, render in GitHub, or grep from the terminal.
