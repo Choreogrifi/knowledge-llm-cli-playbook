@@ -1,93 +1,97 @@
-# LLM CLI Command Reference
-### Claude Code · Gemini CLI — Senior engineer quick-scan format — March 2026
 
-> **Legend:** `CC` = Claude Code · `GEM` = Gemini CLI · `BOTH` = identical or near-identical
+> **Legend:** `CC` = Claude Code · `GEM` = Gemini CLI · `BOTH` = identical or near-identical  
+> Type `/` in either REPL to see all available commands, filtered by typing letters after `/`.
 
 ---
 
 ## §1 — Commands Common to Both Tools
 
-Both tools converge on the same conceptual primitives. Syntax differs; intent is identical.
-
 ---
 
 ### 1.1 Session Lifecycle
 
-| Concept | Claude Code | Gemini CLI |
+|Concept|Claude Code|Gemini CLI|
 |---|---|---|
-| Start interactive REPL | `claude` | `gemini` |
-| Start with initial prompt | `claude "query"` | `gemini -p "query"` |
-| Continue last session | `claude -c` | `gemini` (auto-resumes) |
-| Resume by session ID / tag | `claude -r <id> "query"` | `gemini /resume <tag>` |
-| Exit REPL | `/exit` or `Ctrl-D` | `/quit` or `Ctrl-D` |
-| Clear context window | `/clear` | `/clear` then `/compress` |
-| Compact / summarise context | `/compact [instructions]` | `/compress` |
+|Start interactive REPL|`claude`|`gemini`|
+|Start with initial prompt|`claude "query"`|`gemini -p "query"`|
+|Continue last session|`claude -c`|`gemini` (auto-resumes)|
+|Resume by session ID / tag|`claude -r <id>`|`/resume <tag>`|
+|Fork conversation from here|`/fork [name]`|`/chat save <tag>` + branch|
+|Exit REPL|`/exit` or `Ctrl-D`|`/quit` or `Ctrl-D`|
+|Clear context window|`/clear` (aliases: `/reset`, `/new`)|`/clear`|
+|Compact / summarise context|`/compact [instructions]`|`/compress`|
+
+**When to use what (CC):**
+
+- `/compact` when context > 80% and still on same task: `/compact retain the auth flow and test results`
+- `/clear` when switching tasks entirely — old context confuses Claude
+- `/resume` when picking up a session from a previous day
 
 ---
 
 ### 1.2 File & Directory Context
 
-| Concept | Claude Code | Gemini CLI |
+|Concept|Claude Code|Gemini CLI|
 |---|---|---|
-| Reference file inline | `@./path/to/file.ts` | `@./path/to/file.ts` |
-| Add extra workspace dir | `claude --add-dir ../lib` | `/directory add ../lib` |
-| List active context dirs | `/context` | `/directory list` |
-| Pipe content in | `cat foo.py \| claude -p "explain"` | `cat foo.py \| gemini -p "explain"` |
+|Reference file inline|`@./path/to/file.ts`|`@./path/to/file.ts`|
+|Add extra workspace dir|`--add-dir ../lib` or `/add-dir ../lib`|`/directory add ../lib`|
+|List active context dirs|`/context` (also shows usage %)|`/directory list`|
+|Pipe content in|`cat foo.py \| claude -p "explain"`|`cat foo.py \| gemini -p "explain"`|
 
 ---
 
 ### 1.3 Shell Passthrough
 
-```
-# Both tools use ! prefix to execute shell commands directly
+```bash
+# Both tools: ! prefix runs shell command and injects output into context
 !npm test
-!git diff HEAD~1
+!git diff HEAD~1 -- src/
 !grep -r "pattern" src/ --include="*.ts" -l
+!find src -name "*.ts" | xargs wc -l | sort -rn | head -20
 ```
-
-Shell output is injected into the AI's context for the current turn.
 
 ---
 
 ### 1.4 Configuration & Health
 
-| Concept | Claude Code | Gemini CLI |
+|Concept|Claude Code|Gemini CLI|
 |---|---|---|
-| Show help | `/help` | `/help` |
-| Show version | `claude --version` | `gemini -v` or `/version` |
-| Open settings editor | `/config` | `/settings` |
-| Health / diagnostics | `/doctor` | `/stats`, `/version` |
-| Token / cost stats | `/cos` | `/stats` |
-| List available tools | `/tools` | `/tools list` |
-| Configure MCP server | Edit `.claude/settings.json` | `gemini mcp add` |
-| Reference MCP tool inline | `@server_name query` | `@server_name query` |
+|Show help|`/help`|`/help`|
+|Show version|`claude --version`|`gemini -v` or `/version`|
+|Open settings editor|`/config` (alias: `/settings`)|`/settings`|
+|Health / diagnostics|`/doctor`|`/stats`, `/version`|
+|Token / cost stats|`/cost`|`/stats`|
+|Context window usage|`/context`|`/stats`|
+|List available tools|`/tools`|`/tools list`|
+|Configure MCP server|`claude mcp add` or `/mcp`|`gemini mcp add`|
+|Reference MCP tool inline|`@server_name query`|`@server_name query`|
 
 ---
 
 ### 1.5 Output & Scripting
 
-| Concept | Claude Code | Gemini CLI |
+|Concept|Claude Code|Gemini CLI|
 |---|---|---|
-| Print mode (non-interactive) | `claude -p "query"` | `gemini -p "query"` |
-| JSON structured output | `claude -p --output-format json "query"` | `gemini -p --output-format json "query"` |
-| Save output to file | `/save output.md` | `/save output.md` |
-| Copy last output to clipboard | (OS clipboard) | `/copy` |
+|Print mode (non-interactive)|`claude -p "query"`|`gemini -p "query"`|
+|JSON structured output|`claude -p --output-format json "query"`|`gemini -p --output-format json "query"`|
+|Save output to file|`/export [filename]`|`/save output.md`|
+|Copy last output to clipboard|`/copy`|`/copy`|
 
 ```bash
-# Automation / CI pattern — both tools
-git log --oneline | claude -p "summarise these commits" --output-format json
-cat error.log  | gemini -p "find the root cause" --output-format json
+# Pipe and automate — both tools
+git log --oneline -20 | claude -p "summarise these commits" --output-format text
+cat error.log | gemini -p "find the root cause" --output-format json | jq '.result'
 ```
 
 ---
 
 ### 1.6 Context Files (Project Memory)
 
-Both tools auto-load a context file from the repo root on session start.
+Both tools auto-load a context file from the repo root on every session start.
 
 ```
-CLAUDE.md    # Claude Code reads this
-GEMINI.md    # Gemini CLI reads this
+CLAUDE.md    # Claude Code — generated by /init or written manually
+GEMINI.md    # Gemini CLI — written manually or prompted to generate
 ```
 
 **Recommended structure:**
@@ -109,21 +113,22 @@ Branch naming: feat/<ticket>-<slug>
 3. Wait for confirmation.
 ```
 
-> These files are the single highest-leverage thing you can add to either tool. Commit them.
+> Commit these files. Every future session starts with accurate codebase context at zero cost.
 
 ---
 
-### 1.7 Custom Slash Commands
+### 1.7 Custom Commands
 
-| Concept | Claude Code | Gemini CLI |
+|Concept|Claude Code|Gemini CLI|
 |---|---|---|
-| Project-scoped storage | `.claude/commands/<name>.md` | `.gemini/commands/<name>.toml` |
-| Global (user-scoped) | `~/.claude/commands/` | `~/.gemini/commands/` |
-| Invoke | `/name` or `/name arg` | `/name` or `/name arg` |
-| Format | Markdown (freeform prompt) | TOML (`prompt = "..."`) |
-| Namespacing | Flat by default | Sub-dirs → `/ns:cmd` |
-| MCP prompts as commands | Via `/mcp` | Natively, auto-exposed as `/cmd` |
-| Skills (CC) / Extensions (GEM) | `.claude/skills/<name>/SKILL.md` | `.gemini/extensions/<name>/` |
+|Project-scoped storage|`.claude/skills/<n>/SKILL.md`|`.gemini/commands/<n>.toml`|
+|Legacy format (still works)|`.claude/commands/<n>.md`|—|
+|Global (user-scoped)|`~/.claude/skills/`|`~/.gemini/commands/`|
+|Invoke|`/name` or `/name arg`|`/name` or `/name arg`|
+|Format|Markdown with YAML frontmatter|TOML (`prompt = "..."`)|
+|Namespacing|Flat by default|Sub-dirs → `/ns:cmd`|
+|MCP prompts as commands|Via `/mcp`|Auto-exposed as `/cmd`|
+|List available|`/skills`|`/commands reload` to refresh|
 
 ---
 
@@ -131,20 +136,170 @@ Branch naming: feat/<ticket>-<slug>
 
 ---
 
-### 2.1 Session Flags
+### 2.1 Session Management
 
-| Flag | Example | Notes |
-|---|---|---|
-| `--model` / `-m` | `claude --model claude-opus-4-6 "query"` | Override default model |
-| `--max-turns` | `claude -p --max-turns 5 "query"` | Limit agentic loop depth |
-| `--verbose` | `claude --verbose "query"` | Show tool calls + reasoning |
-| `--output-format` | `claude -p --output-format json\|text\|stream-json` | Control output type |
-| `--add-dir` | `claude --add-dir ../shared ../lib` | Add extra workspace dirs |
-| `--dangerously-skip-permissions` | `claude --dangerously-skip-permissions` | ⚠ Headless / CI only |
+|Command|What It Does|
+|---|---|
+|`/clear`|Wipe history and start fresh. Aliases: `/reset`, `/new`|
+|`/compact [instructions]`|Compress to save context. `/compact retain the API schema`|
+|`/resume [session]`|Resume session by ID/name, or open picker. Alias: `/continue`|
+|`/fork [name]`|Branch current conversation into a new session|
+|`/rename [name]`|Rename current session|
+|`/rewind`|Restore code and conversation to a previous point. Alias: `/checkpoint`|
+|`/exit`|Exit Claude Code. Alias: `/quit`|
+
+**`/rewind` in 2026:** Press `Esc` twice, then choose "Rewind code only" to revert file changes while preserving conversation history, or full rewind to restore both.
 
 ---
 
-### 2.2 Tool Permissions
+### 2.2 Information & Diagnostics
+
+|Command|What It Does|
+|---|---|
+|`/cost`|Token usage and cost for current session|
+|`/usage`|Plan usage limits and rate limit status|
+|`/context`|Visualise context window as a colour grid|
+|`/status`|Version, model, account, connectivity|
+|`/doctor`|Run diagnostics on your installation|
+|`/stats`|Daily usage, session history, streaks|
+|`/diff`|Interactive diff viewer — uncommitted changes and per-turn diffs|
+|`/export [filename]`|Export conversation as text to file or clipboard|
+|`/copy`|Copy last assistant response to clipboard; shows picker for code blocks|
+|`/release-notes`|Full changelog|
+|`/insights`|Analyse usage history, generate HTML report|
+|`/help`|List all available commands|
+
+**Cost management pattern:**
+
+```bash
+/context       # How full is the window?
+/cost          # How much have I spent?
+/usage         # Am I near my rate limit?
+/compact retain the auth flow and error handling patterns
+```
+
+---
+
+### 2.3 Model & Mode Control
+
+|Command|What It Does|
+|---|---|
+|`/model [model]`|Switch model mid-session. Use arrows to adjust effort level|
+|`/fast [on\|off]`|Toggle fast mode — same Opus 4.6 at ~2.5x speed, higher cost|
+|`/plan`|Plan mode — Claude proposes actions before executing, no code written|
+|`/vim`|Toggle Vim keybinding mode in the input|
+|`/output-style [style]`|Switch output style: Default, Explanatory, or Learning|
+|`/theme`|Change colour theme|
+
+**Model selection:**
+
+```bash
+/model sonnet   # Default — handles 80% of work at lower cost
+/model opus     # Complex architecture, subtle bugs, deep reasoning
+/model haiku    # Quick lookups, summaries, simple transforms (~90% cheaper)
+```
+
+**Fast mode:** Ideal for live debugging and rapid iteration. Turn off for batch jobs — per-token cost is higher. Enabling mid-session re-bills prior context at fast mode rates.
+
+---
+
+### 2.4 Configuration & Permissions
+
+|Command|What It Does|
+|---|---|
+|`/config`|Open settings interface. Alias: `/settings`|
+|`/permissions`|View or update tool permissions. Alias: `/allowed-tools`|
+|`/init`|Generate `CLAUDE.md` by scanning the current repo|
+|`/memory`|Edit `CLAUDE.md` files, toggle auto-memory|
+|`/hooks`|Configure and manage lifecycle hooks|
+|`/agents`|Manage subagent configurations|
+|`/skills`|List available skills|
+|`/mcp`|Manage MCP server connections|
+|`/plugin`|Manage Claude Code plugins|
+|`/terminal-setup`|Configure terminal keybindings (Shift+Enter etc.)|
+|`/keybindings`|Open or create keybindings configuration|
+|`/sandbox`|Toggle sandbox mode|
+|`/login`|Sign in / refresh auth token|
+|`/logout`|Sign out|
+|`/privacy-settings`|View/update privacy settings (Pro/Max only)|
+
+---
+
+### 2.5 Code Review & PR Workflow
+
+Requires `gh` CLI installed and authenticated.
+
+|Command|What It Does|
+|---|---|
+|`/review [PR#]`|Review a PR for quality, correctness, security|
+|`/pr-comments [PR#]`|Fetch GitHub PR review comments; auto-detects current branch PR|
+|`/security-review`|Audit pending changes for security vulnerabilities|
+|`/simplify [focus]`|Reviews recently changed files for reuse, quality, efficiency — then fixes them|
+|`/install-github-app`|Set up Claude GitHub Actions for automated PR review|
+
+**`/simplify` detail:** Spawns three parallel review agents (code reuse, code quality, efficiency), aggregates findings, and applies fixes. Run after implementing a feature or fixing a bug.
+
+```bash
+/simplify                              # General cleanup after a feature
+/simplify focus on memory efficiency   # Targeted cleanup
+```
+
+---
+
+### 2.6 Large-Scale Operations
+
+|Command|What It Does|
+|---|---|
+|`/batch <instruction>`|Orchestrate large-scale changes across a codebase in parallel|
+
+**`/batch` detail:** Researches the codebase, decomposes work into 5–30 independent units, presents a plan for approval, then spawns one background agent per unit — each in an isolated git worktree. Each agent implements its unit, runs tests, and opens a PR. Requires git.
+
+```bash
+/batch migrate src/ from CommonJS to ESM
+/batch add JSDoc comments to all exported functions in src/
+/batch add input validation to every API endpoint in src/api/
+```
+
+---
+
+### 2.7 Working Directories & Integration
+
+|Command|What It Does|
+|---|---|
+|`/add-dir <path>`|Add a working directory to the session|
+|`/ide`|Manage IDE integrations (VS Code, JetBrains)|
+|`/chrome`|Configure Chrome browser integration|
+|`/remote-control`|Make session available for remote control from claude.ai. Alias: `/rc`|
+|`/desktop`|Continue session in Claude Code Desktop app. Alias: `/app`|
+|`/tasks`|List and manage background tasks|
+|`/feedback [report]`|Submit feedback. Alias: `/bug`|
+
+---
+
+### 2.8 Launch Flags
+
+|Flag|Example|Notes|
+|---|---|---|
+|`--model`|`claude --model claude-opus-4-6 "query"`|Override default model|
+|`--continue` / `-c`|`claude -c`|Resume most recent session|
+|`--resume` / `-r`|`claude -r auth-refactor`|Resume by ID or name|
+|`--from-pr`|`claude --from-pr 123`|Resume session linked to a PR|
+|`--worktree` / `-w`|`claude -w feature-auth`|Start in isolated git worktree|
+|`--max-turns`|`claude -p --max-turns 5 "query"`|Limit agentic loop depth|
+|`--max-budget-usd`|`claude -p --max-budget-usd 2.00 "query"`|Cap spending per run|
+|`--verbose`|`claude --verbose "query"`|Show tool calls + reasoning|
+|`--output-format`|`claude -p --output-format json\|text\|stream-json`|Control output type|
+|`--add-dir`|`claude --add-dir ../shared ../lib`|Add extra workspace dirs|
+|`--permission-mode`|`claude --permission-mode plan`|Start in plan mode|
+|`--agents`|`claude --agents '{...}'`|Define inline subagents via JSON|
+|`--mcp-config`|`claude --mcp-config ./mcp.json`|Load MCP servers from file|
+|`--remote`|`claude --remote`|Create web session on claude.ai|
+|`--teleport`|`claude --teleport`|Resume a web session in local terminal|
+|`--dangerously-skip-permissions`|`claude --dangerously-skip-permissions`|⚠ Headless / CI only|
+
+---
+
+### 2.9 Tool Permissions
 
 ```bash
 # Whitelist specific tool patterns
@@ -153,51 +308,50 @@ claude --allowedTools "Bash(git:*)" "Write" "Read"
 # Blacklist destructive operations
 claude --disallowedTools "Bash(rm:*)" "Bash(sudo:*)"
 
-# Custom permission gating via MCP
-claude -p --permission-prompt-tool mcp_auth_tool "query"
-
-# Multi-directory with restricted tools
-claude --add-dir ../frontend ../backend \
-       --allowedTools "Bash(git:*)" "Write" "Read" \
-       --disallowedTools "Bash(rm:*)"
+# Safe automation pattern
+claude -p \
+  --allowedTools "Bash(git log:*)" "Bash(git diff:*)" "Read" "Grep" "Glob" \
+  --max-budget-usd 1.00 \
+  "Review the last 3 commits for security issues" \
+  --output-format json
 ```
 
 ---
 
-### 2.3 System Prompt Control
+### 2.10 System Prompt Flags
 
-| Flag | Behaviour | When to use |
+|Flag|Behaviour|When to use|
 |---|---|---|
-| `--append-system-prompt "…"` | Adds to defaults | **Preferred** — keeps built-in capabilities |
-| `--append-system-prompt-file ./p.md` | File-based append | Team consistency, version-controlled prompts |
-| `--system-prompt "…"` | Replaces ALL defaults | Full control needed |
-| `--system-prompt-file ./p.md` | Full replacement from file | Complete custom persona |
-
-> `--system-prompt` and `--system-prompt-file` are mutually exclusive.
+|`--append-system-prompt "…"`|Adds to defaults|**Preferred** — keeps built-in capabilities|
+|`--append-system-prompt-file ./p.md`|File-based append|Team consistency, version-controlled|
+|`--system-prompt "…"`|Replaces ALL defaults|Full control needed|
+|`--system-prompt-file ./p.md`|Full replacement from file|Complete custom persona|
 
 ---
 
-### 2.4 REPL Slash Commands
+### 2.11 Keyboard Shortcuts
 
-| Command | What it does |
+|Shortcut|What It Does|
 |---|---|
-| `/init` | Generates `CLAUDE.md` by scanning the current repo |
-| `/plan` | Read-only analysis mode — no code written until you confirm |
-| `/review` | Code review of current changes via review subagent |
-| `/pr-comments` | Reads open GitHub PR review comments and addresses them |
-| `/compact [instructions]` | Summarise context; optionally specify what to preserve |
-| `/ide` | Manage VS Code / JetBrains integrations |
-| `/mcp` | List and manage MCP server connections |
-| `/cos` | Show token cost and duration of current session |
-| `/insights` | Analyses usage history, generates HTML report |
-| `/checkpoint save <tag>` | Save named conversation state |
-| `/checkpoint resume <tag>` | Restore named state |
+|`Escape`|Cancel current generation|
+|`Esc` + `Esc`|Rewind — undo Claude's last actions|
+|`Ctrl+C` (×2)|Exit session|
+|`Ctrl+R`|Reverse search prompt history|
+|`Ctrl+T`|Toggle task list|
+|`Shift+Tab`|Cycle permission modes (Auto-Accept → Plan → Normal)|
+|`Ctrl+O`|Toggle verbose output (see tool calls)|
+|`Ctrl+B`|Background a running command — keep typing while it runs|
+|`Ctrl+G`|Open current prompt in external editor|
+|`Alt+P` / `Option+P`|Switch model without clearing prompt|
+|`Alt+T` / `Option+T`|Toggle extended thinking|
+|`\` + `Enter`|New line in prompt (works everywhere)|
+|`Shift+Enter`|New line (iTerm2, WezTerm, Ghostty, Kitty)|
+
+> Run `/terminal-setup` if `Shift+Enter` does not work in your terminal.
 
 ---
 
-### 2.5 Subagents
-
-Defined in `.claude/agents/<name>.md` or inline via `--agents`. Claude invokes them automatically based on description matching.
+### 2.12 Subagents
 
 ```markdown
 # .claude/agents/reviewer.md
@@ -215,7 +369,7 @@ performance, and architectural consistency.
 # Inline via CLI flag
 claude --agents '{
   "reviewer": {
-    "description": "Expert code reviewer. Use after code changes.",
+    "description": "Expert code reviewer. Use proactively after code changes.",
     "prompt": "You are a senior reviewer. Focus on security and performance.",
     "tools": ["Read", "Grep", "Glob", "Bash"],
     "model": "sonnet"
@@ -225,25 +379,7 @@ claude --agents '{
 
 ---
 
-### 2.6 Git Worktree Parallel Sessions
-
-```bash
-# Create worktrees for parallel agent work — agents never touch each other's branches
-git worktree add ../feat-auth     feat/auth-uuid-abc123
-git worktree add ../feat-billing  feat/billing-uuid-def456
-
-# Run independent Claude sessions in each
-cd ../feat-auth    && claude "implement JWT auth" &
-cd ../feat-billing && claude "implement Stripe integration" &
-```
-
-> Combined with UUID-suffixed branch isolation: each agent works its own branch and communicates via PR metadata — never directly overwrites another agent's branch.
-
----
-
-### 2.7 Hooks (CI / Post-Write Automation)
-
-Hooks fire shell commands on lifecycle events, regardless of model behaviour.
+### 2.13 Hooks
 
 ```json
 // .claude/settings.json
@@ -262,51 +398,72 @@ Hooks fire shell commands on lifecycle events, regardless of model behaviour.
 
 ---
 
+### 2.14 Environment Variables
+
+|Variable|Purpose|
+|---|---|
+|`ANTHROPIC_API_KEY`|API key auth (leave unset for subscription auth)|
+|`ANTHROPIC_MODEL`|Override default model|
+|`CLAUDE_CODE_EFFORT_LEVEL`|Thinking effort: `low`, `medium`, `high`|
+|`CLAUDE_CODE_MAX_OUTPUT_TOKENS`|Max output tokens (default 32k, max 64k)|
+|`CLAUDE_CODE_USE_BEDROCK=1`|Route through AWS Bedrock|
+|`CLAUDE_CODE_USE_VERTEX=1`|Route through Google Vertex AI|
+|`CLAUDE_CODE_SUBAGENT_MODEL`|Model for subagents|
+|`BASH_DEFAULT_TIMEOUT_MS`|Default timeout for bash commands|
+|`BASH_MAX_OUTPUT_LENGTH`|Max chars before truncation|
+|`DISABLE_AUTOUPDATER=1`|Disable automatic updates|
+|`DISABLE_PROMPT_CACHING=1`|Disable prompt caching|
+
+---
+
 ## §3 — Gemini CLI Only
 
 ---
 
 ### 3.1 Launch Flags
 
-| Flag | Example | Notes |
+|Flag|Example|Notes|
 |---|---|---|
-| `-m` / `--model` | `gemini -m gemini-2.5-flash "query"` | Flash = fast/cheap; Pro = default |
-| `-p` / `--prompt` | `gemini -p "summarise this repo"` | Non-interactive, exits after |
-| `--output-format` | `gemini -p "query" --output-format json` | `json` or `text` |
-| `--include-directories` | `gemini --include-directories ../lib ../shared` | Extra dirs at launch |
-| `--sandbox` | `gemini --sandbox` | Restrictive execution profile |
-| `--debug` | `gemini --debug` | Verbose tool + request logging |
-| `--checkpointing` | `gemini --checkpointing` | Auto-checkpoint before file writes |
+|`-m` / `--model`|`gemini -m gemini-2.5-flash "query"`|Flash = fast/cheap; Pro = default|
+|`-p` / `--prompt`|`gemini -p "summarise this repo"`|Non-interactive, exits after|
+|`--output-format`|`gemini -p "query" --output-format json`|`json` or `text`|
+|`--include-directories`|`gemini --include-directories ../lib ../shared`|Extra dirs at launch|
+|`--sandbox`|`gemini --sandbox`|Restrictive execution profile|
+|`--debug`|`gemini --debug`|Verbose tool + request logging|
+|`--checkpointing`|`gemini --checkpointing`|Auto-checkpoint before file writes|
 
 ---
 
 ### 3.2 Built-in REPL Commands
 
-| Command | What it does |
+|Command|What It Does|
 |---|---|
-| `/compress` | Summarise and replace context in one step |
-| `/copy` | Copy last AI output to clipboard |
-| `/chat save <tag>` | Named conversation checkpoint |
-| `/chat resume <tag>` | Restore named checkpoint |
-| `/checkpoint` | Auto-checkpoint management for file writes |
-| `/directory add <path>` | Add directory mid-session |
-| `/directory list` | Show active workspace directories |
-| `/editor` | Switch editor (vim / emacs / nano etc.) |
-| `/vim` | Toggle vim keybinding mode |
-| `/theme` | Switch visual theme interactively |
-| `/stats` | Token usage + cached token savings |
-| `/tools list` | Show available tools |
-| `/tools describe` | Full tool descriptions |
-| `/commands reload` | Hot-reload `.toml` command files without restart |
-| `/auth` | Switch authentication method |
-| `/quit` | Exit session |
+|`/compress`|Summarise and replace context in one step|
+|`/copy`|Copy last AI output to clipboard|
+|`/chat save <tag>`|Named conversation checkpoint|
+|`/chat resume <tag>`|Restore named checkpoint|
+|`/checkpoint`|Auto-checkpoint management for file writes|
+|`/directory add <path>`|Add directory mid-session|
+|`/directory list`|Show active workspace directories|
+|`/stats`|Token usage + cached token savings|
+|`/tools list`|Show available tools|
+|`/tools describe`|Full tool descriptions|
+|`/commands reload`|Hot-reload `.toml` command files without restart|
+|`/editor`|Switch editor|
+|`/vim`|Toggle vim keybinding mode|
+|`/theme`|Switch visual theme|
+|`/auth`|Switch authentication method|
+|`/settings`|Open settings editor|
+|`/version`|Show version info|
+|`/bug`|File an issue in the Gemini CLI GitHub repo|
+|`/quit`|Exit session|
 
 ---
 
 ### 3.3 Custom Command TOML Format
 
 ```toml
-# .gemini/commands/review.toml  →  invoked as /review
+# .gemini/commands/review.toml  →  /review
 description = "Review code for a given concern"
 prompt = """
 You are a senior engineer. Review the following code for {{args}}.
@@ -316,7 +473,7 @@ Reference our standards: @{docs/engineering-standards.md}
 ```
 
 ```toml
-# .gemini/commands/git/commit.toml  →  invoked as /git:commit
+# .gemini/commands/git/commit.toml  →  /git:commit
 description = "Generate a conventional commit message"
 prompt = """
 Analyse the staged diff and write a conventional commit message.
@@ -334,10 +491,9 @@ Types: feat | fix | refactor | test | docs | chore
 ### 3.4 MCP Server Management
 
 ```bash
-# Manage via CLI
 gemini mcp add
 gemini mcp list
-gemini mcp remove <name>
+gemini mcp remove <n>
 ```
 
 ```json
@@ -348,19 +504,10 @@ gemini mcp remove <name>
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": { "GITHUB_TOKEN": "$GITHUB_TOKEN" }
-    },
-    "db": {
-      "command": "node",
-      "args": ["mcp/db-server.js"],
-      "trust": false,
-      "includeTools": ["query", "schema"],
-      "excludeTools": ["drop_table"]
     }
   }
 }
 ```
-
-> MCP prompts are auto-exposed as slash commands. A prompt named `review` becomes `/review` in the session.
 
 ---
 
@@ -371,9 +518,7 @@ gemini mcp remove <name>
 {
   "name": "project-tools",
   "version": "1.0.0",
-  "mcpServers": {
-    "db": { "command": "node mcp/db-server.js" }
-  },
+  "mcpServers": { "db": { "command": "node mcp/db-server.js" } },
   "contextFileName": "GEMINI.md",
   "excludeTools": ["run_shell_command"]
 }
@@ -383,32 +528,61 @@ gemini mcp remove <name>
 
 ## §4 — The Canonical 25
 
-Every LLM developer tool eventually converges on these primitives.
-
-| # | Concept | Claude Code | Gemini CLI | Notes |
+|#|Concept|Claude Code|Gemini CLI|Notes|
 |---|---|---|---|---|
-| 1 | Start session | `claude` | `gemini` | Entry point. Both auto-detect cwd. |
-| 2 | Start with prompt | `claude "…"` | `gemini -p "…"` | One-shot execution. |
-| 3 | Continue session | `claude -c` | `gemini` / `/resume` | Restore prior context. |
-| 4 | Print mode | `claude -p "…"` | `gemini -p "…"` | Non-interactive, pipe-friendly. |
-| 5 | JSON output | `--output-format json` | `--output-format json` | Automation / CI. |
-| 6 | Reference file | `@./src/api.ts` | `@./src/api.ts` | Inline file injection. |
-| 7 | Run shell command | `!npm test` | `!npm test` | Passthrough to shell. |
-| 8 | Add workspace dir | `--add-dir ../lib` | `/directory add ../lib` | Multi-repo context. |
-| 9 | Pipe to AI | `cat log \| claude -p "…"` | `cat log \| gemini -p "…"` | stdin passthrough. |
-| 10 | Compact context | `/compact` | `/compress` | Save tokens mid-session. |
-| 11 | Save checkpoint | `/checkpoint save <tag>` | `/chat save <tag>` | Branch conversation state. |
-| 12 | Resume checkpoint | `/checkpoint resume <tag>` | `/chat resume <tag>` | Restore named state. |
-| 13 | Clear context | `/clear` | `/clear` + `/compress` | Fresh context window. |
-| 14 | Project memory file | `CLAUDE.md` | `GEMINI.md` | Persistent codebase context. |
-| 15 | Init context file | `/init` | Write `GEMINI.md` manually | Bootstrap project awareness. |
-| 16 | Custom command | `.claude/commands/foo.md` | `.gemini/commands/foo.toml` | Reusable prompt macros. |
-| 17 | Plan before code | `/plan` | `/plan` custom cmd or `GEMINI.md` | Read-only analysis first. |
-| 18 | Model selection | `--model claude-opus-4-6` | `-m gemini-2.5-flash` | Balance quality vs cost. |
-| 19 | Config / settings | `/config` | `/settings` | Interactive config editor. |
-| 20 | Show help | `/help` | `/help` | List all commands. |
-| 21 | Token / cost stats | `/cos` | `/stats` | Session usage summary. |
-| 22 | MCP server | `--mcp` / `.claude/settings.json` | `gemini mcp add` / `settings.json` | Extend with external tools. |
-| 23 | Tool permissions | `--allowedTools` `--disallowedTools` | `sandbox` / `settings.json` | Control blast radius. |
-| 24 | Subagent / agent | `.claude/agents/` or `--agents` | Via MCP / extensions | Delegate to specialised AI. |
-| 25 | Non-interactive hook | `.claude/settings.json` hooks | `.gemini/settings` automation | CI / post-write linting. |
+|1|Start session|`claude`|`gemini`|Entry point. Both auto-detect cwd.|
+|2|Start with prompt|`claude "…"`|`gemini -p "…"`|One-shot execution.|
+|3|Continue session|`claude -c`|`gemini` / `/resume`|Restore prior context.|
+|4|Print mode|`claude -p "…"`|`gemini -p "…"`|Non-interactive, pipe-friendly.|
+|5|JSON output|`--output-format json`|`--output-format json`|Automation / CI.|
+|6|Reference file|`@./src/api.ts`|`@./src/api.ts`|Inline file injection.|
+|7|Run shell command|`!npm test`|`!npm test`|Passthrough to shell.|
+|8|Add workspace dir|`--add-dir ../lib`|`/directory add ../lib`|Multi-repo context.|
+|9|Pipe to AI|`cat log \| claude -p "…"`|`cat log \| gemini -p "…"`|stdin passthrough.|
+|10|Compact context|`/compact [instructions]`|`/compress`|Save tokens mid-session.|
+|11|Save checkpoint|`/fork` or `/rewind`|`/chat save <tag>`|Branch conversation state.|
+|12|Resume checkpoint|`/resume [session]`|`/chat resume <tag>`|Restore named state.|
+|13|Clear context|`/clear`|`/clear`|Fresh context window.|
+|14|Project memory file|`CLAUDE.md`|`GEMINI.md`|Persistent codebase context.|
+|15|Init context file|`/init`|Write `GEMINI.md` manually|Bootstrap project awareness.|
+|16|Custom command|`.claude/skills/foo/SKILL.md`|`.gemini/commands/foo.toml`|Reusable prompt macros.|
+|17|Plan before code|`/plan` or `Shift+Tab`|`/plan` custom cmd|Read-only analysis first.|
+|18|Model selection|`/model sonnet\|opus\|haiku`|`-m gemini-2.5-flash\|pro`|Balance quality vs cost.|
+|19|Config / settings|`/config`|`/settings`|Interactive config editor.|
+|20|Token / cost stats|`/cost` + `/context`|`/stats`|Session usage summary.|
+|21|MCP server|`claude mcp add` / `/mcp`|`gemini mcp add`|Extend with external tools.|
+|22|Tool permissions|`--allowedTools` `--disallowedTools`|`--sandbox` / settings|Control blast radius.|
+|23|Subagent / agent|`.claude/agents/` or `--agents`|Via MCP / extensions|Delegate to specialised AI.|
+|24|Large-scale parallel|`/batch <instruction>`|Staged + `/chat save`|Decomposed parallel work.|
+|25|Post-write automation|`.claude/settings.json` hooks|`.gemini/settings`|CI / linting / git ops.|
+
+---
+
+## §5 — Quick Reference Card
+
+```bash
+# Session health — run these reflexively
+/context       # How full is the context window?
+/cost          # How much have I spent this session?
+/usage         # Am I near my rate limit?
+
+# Context management
+/compact retain the auth flow and error handling
+/clear         # Switching tasks entirely
+
+# Model switching
+/model sonnet  # Default — most tasks
+/model opus    # Hard problem, architecture decision
+/model haiku   # Quick lookup, trivial transform
+
+# Post-feature cleanup
+/simplify                            # Reuse + quality + efficiency pass
+/security-review                     # Security audit before PR
+
+# Safe scripting pattern
+claude -p "your query" \
+  --output-format json \
+  --max-turns 5 \
+  --max-budget-usd 2.00 \
+  --allowedTools "Read" "Grep" "Glob" "Bash(git:*)"
+```
