@@ -1,3 +1,4 @@
+<!-- Last verified: 2026-03-12 -->
 
 > **Legend:** `CC` = Claude Code · `GEM` = Gemini CLI · `BOTH` = identical or near-identical  
 > Type `/` in either REPL to see all available commands, filtered by typing letters after `/`.
@@ -19,7 +20,7 @@
 |Fork conversation from here|`/fork [name]`|`/chat save <tag>` + branch|
 |Exit REPL|`/exit` or `Ctrl-D`|`/quit` or `Ctrl-D`|
 |Clear context window|`/clear` (aliases: `/reset`, `/new`)|`/clear`|
-|Compact / summarise context|`/compact [instructions]`|`/compress`|
+|Compact / summarise context|`/compact [instructions]`|`/compress` (alias: `/compact`)|
 
 **When to use what (CC):**
 
@@ -167,6 +168,8 @@ Branch naming: feat/<ticket>-<slug>
 |`/copy`|Copy last assistant response to clipboard; shows picker for code blocks|
 |`/release-notes`|Full changelog|
 |`/insights`|Analyse usage history, generate HTML report|
+|`/debug [description]`|Troubleshoot current session by reading the debug log; optionally describe the issue to focus analysis|
+|`/loop [interval] <prompt>`|Run a prompt repeatedly on an interval while session stays open (e.g. `/loop 5m check if deploy finished`)|
 |`/help`|List all available commands|
 
 **Cost management pattern:**
@@ -188,7 +191,8 @@ Branch naming: feat/<ticket>-<slug>
 |`/fast [on\|off]`|Toggle fast mode — same Opus 4.6 at ~2.5x speed, higher cost|
 |`/plan`|Plan mode — Claude proposes actions before executing, no code written|
 |`/vim`|Toggle Vim keybinding mode in the input|
-|`/output-style [style]`|Switch output style: Default, Explanatory, or Learning|
+|~~`/output-style [style]`~~|~~Switch output style~~ — **Deprecated**: use `/config` instead|
+|`/effort [low\|medium\|high\|auto]`|Set thinking effort level (symbols: ○ ◐ ●). `/effort auto` resets to default|
 |`/theme`|Change colour theme|
 
 **Model selection:**
@@ -214,6 +218,7 @@ Branch naming: feat/<ticket>-<slug>
 |`/hooks`|Configure and manage lifecycle hooks|
 |`/agents`|Manage subagent configurations|
 |`/skills`|List available skills|
+|`/claude-api`|Load Claude API + Agent SDK reference for your project's language; auto-activates on `anthropic` imports|
 |`/mcp`|Manage MCP server connections|
 |`/plugin`|Manage Claude Code plugins|
 |`/terminal-setup`|Configure terminal keybindings (Shift+Enter etc.)|
@@ -295,6 +300,29 @@ Requires `gh` CLI installed and authenticated.
 |`--mcp-config`|`claude --mcp-config ./mcp.json`|Load MCP servers from file|
 |`--remote`|`claude --remote`|Create web session on claude.ai|
 |`--teleport`|`claude --teleport`|Resume a web session in local terminal|
+|`--agent`|`claude --agent my-custom-agent`|Specify a subagent for the session|
+|`--allow-dangerously-skip-permissions`|`claude --allow-dangerously-skip-permissions`|Enable permission bypass as option (compose with `--permission-mode`)|
+|`--betas`|`claude --betas interleaved-thinking`|Beta headers for API requests (API key users)|
+|`--chrome` / `--no-chrome`|`claude --chrome`|Enable/disable Chrome browser integration|
+|`--debug`|`claude --debug "api,mcp"`|Debug mode with optional category filter|
+|`--disable-slash-commands`|`claude --disable-slash-commands`|Disable all skills/commands for session|
+|`--fallback-model`|`claude -p --fallback-model sonnet "query"`|Auto-fallback when default model overloaded (print mode)|
+|`--fork-session`|`claude -r abc123 --fork-session`|Create new session ID when resuming|
+|`--ide`|`claude --ide`|Auto-connect to IDE on startup|
+|`--init` / `--init-only`|`claude --init-only`|Run init hooks and start (or exit immediately)|
+|`--include-partial-messages`|`claude -p --output-format stream-json --include-partial-messages`|Include partial streaming events|
+|`--input-format`|`claude -p --input-format stream-json`|Input format for print mode (`text`, `stream-json`)|
+|`--json-schema`|`claude -p --json-schema '{...}' "query"`|Validated JSON output matching a schema (print mode)|
+|`--maintenance`|`claude --maintenance`|Run maintenance hooks and exit|
+|`--no-session-persistence`|`claude -p --no-session-persistence "query"`|Don't save session to disk (print mode)|
+|`--permission-prompt-tool`|`claude -p --permission-prompt-tool mcp_auth "query"`|MCP tool to handle permission prompts (non-interactive)|
+|`--plugin-dir`|`claude --plugin-dir ./my-plugins`|Load plugins from directory (repeatable)|
+|`--session-id`|`claude --session-id "550e8400-..."`|Use specific UUID for conversation|
+|`--setting-sources`|`claude --setting-sources user,project`|Limit setting sources (`user`, `project`, `local`)|
+|`--settings`|`claude --settings ./settings.json`|Load additional settings from JSON file or string|
+|`--strict-mcp-config`|`claude --strict-mcp-config --mcp-config ./mcp.json`|Only use MCP servers from `--mcp-config`|
+|`--teammate-mode`|`claude --teammate-mode tmux`|Agent team display: `auto`, `in-process`, `tmux`|
+|`--tools`|`claude --tools "Bash,Edit,Read"`|Restrict which built-in tools are available|
 |`--dangerously-skip-permissions`|`claude --dangerously-skip-permissions`|⚠ Headless / CI only|
 
 ---
@@ -372,10 +400,16 @@ claude --agents '{
     "description": "Expert code reviewer. Use proactively after code changes.",
     "prompt": "You are a senior reviewer. Focus on security and performance.",
     "tools": ["Read", "Grep", "Glob", "Bash"],
-    "model": "sonnet"
+    "disallowedTools": ["Write"],
+    "model": "sonnet",
+    "skills": ["api-conventions"],
+    "mcpServers": ["github"],
+    "maxTurns": 10
   }
 }'
 ```
+
+**Subagent JSON fields:** `description` (required), `prompt` (required), `tools`, `disallowedTools`, `model` (`sonnet`|`opus`|`haiku`|`inherit`), `skills` (preloaded skill names), `mcpServers` (server names or `{name: config}` objects), `maxTurns`.
 
 ---
 
@@ -413,6 +447,7 @@ claude --agents '{
 |`BASH_MAX_OUTPUT_LENGTH`|Max chars before truncation|
 |`DISABLE_AUTOUPDATER=1`|Disable automatic updates|
 |`DISABLE_PROMPT_CACHING=1`|Disable prompt caching|
+|`SLASH_COMMAND_TOOL_CHAR_BUDGET`|Override skill description character budget (default: 2% of context window, fallback 16k)|
 
 ---
 
@@ -424,13 +459,19 @@ claude --agents '{
 
 |Flag|Example|Notes|
 |---|---|---|
-|`-m` / `--model`|`gemini -m gemini-2.5-flash "query"`|Flash = fast/cheap; Pro = default|
+|`-m` / `--model`|`gemini -m gemini-3`|Gemini 3 = default; Flash = fast/cheap. Supports aliases and concrete names|
 |`-p` / `--prompt`|`gemini -p "summarise this repo"`|Non-interactive, exits after|
-|`--output-format`|`gemini -p "query" --output-format json`|`json` or `text`|
+|`-i` / `--prompt-interactive`|`gemini -i "start here"`|Execute prompt then continue interactively|
+|`--output-format`|`gemini -p "query" --output-format json`|`json`, `text`, or `stream-json` (newline-delimited JSON events)|
 |`--include-directories`|`gemini --include-directories ../lib ../shared`|Extra dirs at launch|
-|`--sandbox`|`gemini --sandbox`|Restrictive execution profile|
+|`--sandbox` / `-s`|`gemini --sandbox`|Restrictive execution profile|
+|`--approval-mode`|`gemini --approval-mode=yolo`|Approval mode (replaces ~~`--yolo`~~)|
+|`--policy`|`gemini --policy ./policy.json`|User-defined policy file for strict seatbelt profiles|
 |`--debug`|`gemini --debug`|Verbose tool + request logging|
 |`--checkpointing`|`gemini --checkpointing`|Auto-checkpoint before file writes|
+|~~`--yolo`~~|—|**Deprecated**: use `--approval-mode=yolo`|
+|~~`--all-files` / `-a`~~|—|**Deprecated**: use `@` from within the CLI|
+|~~`--allowed-tools`~~|—|**Deprecated**: use the policy engine|
 
 ---
 
@@ -438,7 +479,7 @@ claude --agents '{
 
 |Command|What It Does|
 |---|---|
-|`/compress`|Summarise and replace context in one step|
+|`/compress`|Summarise and replace context in one step (alias: `/compact`)|
 |`/copy`|Copy last AI output to clipboard|
 |`/chat save <tag>`|Named conversation checkpoint|
 |`/chat resume <tag>`|Restore named checkpoint|
@@ -455,6 +496,12 @@ claude --agents '{
 |`/auth`|Switch authentication method|
 |`/settings`|Open settings editor|
 |`/version`|Show version info|
+|`/upgrade`|Check for and install version updates|
+|`/prompt-suggest`|Generate prompt suggestions|
+|`/memory`|Manage persistent memory (GEMINI.md)|
+|`/init`|Initialise project context|
+|`/extensions`|Manage installed extensions|
+|`/restore`|Restore previous state|
 |`/bug`|File an issue in the Gemini CLI GitHub repo|
 |`/quit`|Exit session|
 
@@ -547,11 +594,11 @@ gemini mcp remove <n>
 |15|Init context file|`/init`|Write `GEMINI.md` manually|Bootstrap project awareness.|
 |16|Custom command|`.claude/skills/foo/SKILL.md`|`.gemini/commands/foo.toml`|Reusable prompt macros.|
 |17|Plan before code|`/plan` or `Shift+Tab`|`/plan` custom cmd|Read-only analysis first.|
-|18|Model selection|`/model sonnet\|opus\|haiku`|`-m gemini-2.5-flash\|pro`|Balance quality vs cost.|
+|18|Model selection|`/model sonnet\|opus\|haiku`|`-m gemini-3\|flash\|3.1-pro-preview`|Balance quality vs cost.|
 |19|Config / settings|`/config`|`/settings`|Interactive config editor.|
 |20|Token / cost stats|`/cost` + `/context`|`/stats`|Session usage summary.|
 |21|MCP server|`claude mcp add` / `/mcp`|`gemini mcp add`|Extend with external tools.|
-|22|Tool permissions|`--allowedTools` `--disallowedTools`|`--sandbox` / settings|Control blast radius.|
+|22|Tool permissions|`--allowedTools` `--disallowedTools`|`--sandbox` / `--policy` / settings|Control blast radius.|
 |23|Subagent / agent|`.claude/agents/` or `--agents`|Via MCP / extensions|Delegate to specialised AI.|
 |24|Large-scale parallel|`/batch <instruction>`|Staged + `/chat save`|Decomposed parallel work.|
 |25|Post-write automation|`.claude/settings.json` hooks|`.gemini/settings`|CI / linting / git ops.|
