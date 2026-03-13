@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-03-12 -->
+<!-- Last verified: 2026-03-13 -->
 
 > **Legend:** `CC` = Claude Code · `GEM` = Gemini CLI · `BOTH` = identical or near-identical  
 > Type `/` in either REPL to see all available commands, filtered by typing letters after `/`.
@@ -130,6 +130,10 @@ Branch naming: feat/<ticket>-<slug>
 |Namespacing|Flat by default|Sub-dirs → `/ns:cmd`|
 |MCP prompts as commands|Via `/mcp`|Auto-exposed as `/cmd`|
 |List available|`/skills`|`/commands reload` to refresh|
+
+**CC skill frontmatter fields:** `name`, `description` (recommended), `argument-hint`, `disable-model-invocation` (true = user-only invoke), `user-invocable` (false = Claude-only), `allowed-tools`, `model`, `context: fork` (run in isolated subagent), `agent` (subagent type to use), `hooks`.
+
+**CC skill substitutions:** `$ARGUMENTS`, `$ARGUMENTS[N]` / `$N` (0-indexed positional args), `${CLAUDE_SESSION_ID}`, `${CLAUDE_SKILL_DIR}`.
 
 ---
 
@@ -283,6 +287,19 @@ Requires `gh` CLI installed and authenticated.
 
 ### 2.8 Launch Flags
 
+**Top-level CLI commands (run from shell, not REPL):**
+
+|Command|Description|
+|---|---|
+|`claude update`|Update Claude Code to the latest version|
+|`claude auth login`|Sign in. `--email` pre-fills email; `--sso` forces SSO auth|
+|`claude auth logout`|Sign out|
+|`claude auth status`|Auth status as JSON (`--text` for human-readable). Exit 0 if logged in|
+|`claude agents`|List all configured subagents, grouped by source|
+|`claude remote-control`|Start a Remote Control session (control from claude.ai while running locally)|
+
+**Flags:**
+
 |Flag|Example|Notes|
 |---|---|---|
 |`--model`|`claude --model claude-opus-4-6 "query"`|Override default model|
@@ -324,6 +341,7 @@ Requires `gh` CLI installed and authenticated.
 |`--teammate-mode`|`claude --teammate-mode tmux`|Agent team display: `auto`, `in-process`, `tmux`|
 |`--tools`|`claude --tools "Bash,Edit,Read"`|Restrict which built-in tools are available|
 |`--dangerously-skip-permissions`|`claude --dangerously-skip-permissions`|⚠ Headless / CI only|
+|`--version` / `-v`|`claude -v`|Output the version number|
 
 ---
 
@@ -373,6 +391,7 @@ claude -p \
 |`Alt+P` / `Option+P`|Switch model without clearing prompt|
 |`Alt+T` / `Option+T`|Toggle extended thinking|
 |`\` + `Enter`|New line in prompt (works everywhere)|
+|`Ctrl+F`|Kill background agents (requires second press to confirm)|
 |`Shift+Enter`|New line (iTerm2, WezTerm, Ghostty, Kitty)|
 
 > Run `/terminal-setup` if `Shift+Enter` does not work in your terminal.
@@ -448,6 +467,7 @@ claude --agents '{
 |`DISABLE_AUTOUPDATER=1`|Disable automatic updates|
 |`DISABLE_PROMPT_CACHING=1`|Disable prompt caching|
 |`SLASH_COMMAND_TOOL_CHAR_BUDGET`|Override skill description character budget (default: 2% of context window, fallback 16k)|
+|`CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`|Load `CLAUDE.md` files from `--add-dir` directories (off by default)|
 
 ---
 
@@ -469,9 +489,12 @@ claude --agents '{
 |`--policy`|`gemini --policy ./policy.json`|User-defined policy file for strict seatbelt profiles|
 |`--debug`|`gemini --debug`|Verbose tool + request logging|
 |`--checkpointing`|`gemini --checkpointing`|Auto-checkpoint before file writes|
+|`--admin-policy`|`gemini --admin-policy ./admin.json`|Supplemental administrator policy file|
 |~~`--yolo`~~|—|**Deprecated**: use `--approval-mode=yolo`|
 |~~`--all-files` / `-a`~~|—|**Deprecated**: use `@` from within the CLI|
 |~~`--allowed-tools`~~|—|**Deprecated**: use the policy engine|
+
+> **`SANDBOX_FLAGS`** env var: pass custom flags to Docker/Podman when using `--sandbox` (e.g. `SANDBOX_FLAGS="--memory=4g"`).
 
 ---
 
@@ -493,6 +516,7 @@ claude --agents '{
 |`/editor`|Switch editor|
 |`/vim`|Toggle vim keybinding mode|
 |`/theme`|Switch visual theme|
+|`/footer`|Configure custom footer display|
 |`/auth`|Switch authentication method|
 |`/settings`|Open settings editor|
 |`/version`|Show version info|
@@ -504,6 +528,8 @@ claude --agents '{
 |`/restore`|Restore previous state|
 |`/bug`|File an issue in the Gemini CLI GitHub repo|
 |`/quit`|Exit session|
+
+> **Plan Mode** is enabled by default as of v0.33.x. It no longer carries the experimental badge. Use `--approval-mode=yolo` to skip confirmation.
 
 ---
 
