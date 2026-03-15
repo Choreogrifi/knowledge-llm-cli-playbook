@@ -1,4 +1,4 @@
-<!-- Last verified: 2026-03-13 -->
+<!-- Last verified: 2026-03-15 -->
 
 > **Legend:** `CC` = Claude Code · `GEM` = Gemini CLI · `BOTH` = identical or near-identical  
 > Type `/` in either REPL to see all available commands, filtered by typing letters after `/`.
@@ -174,6 +174,7 @@ Branch naming: feat/<ticket>-<slug>
 |`/insights`|Analyse usage history, generate HTML report|
 |`/debug [description]`|Troubleshoot current session by reading the debug log; optionally describe the issue to focus analysis|
 |`/loop [interval] <prompt>`|Run a prompt repeatedly on an interval while session stays open (e.g. `/loop 5m check if deploy finished`)|
+|`/color default\|gray\|reset\|none`|Reset terminal colour to default or set a specific colour scheme for the session|
 |`/help`|List all available commands|
 
 **Cost management pattern:**
@@ -196,7 +197,7 @@ Branch naming: feat/<ticket>-<slug>
 |`/plan`|Plan mode — Claude proposes actions before executing, no code written|
 |`/vim`|Toggle Vim keybinding mode in the input|
 |~~`/output-style [style]`~~|~~Switch output style~~ — **Deprecated**: use `/config` instead|
-|`/effort [low\|medium\|high\|auto]`|Set thinking effort level (symbols: ○ ◐ ●). `/effort auto` resets to default|
+|`/effort [low\|medium\|high\|max\|auto]`|Set thinking effort level (symbols: ○ ◐ ●). `max` = Opus 4.6 only. `/effort auto` resets to default|
 |`/theme`|Change colour theme|
 
 **Model selection:**
@@ -225,6 +226,7 @@ Branch naming: feat/<ticket>-<slug>
 |`/claude-api`|Load Claude API + Agent SDK reference for your project's language; auto-activates on `anthropic` imports|
 |`/mcp`|Manage MCP server connections|
 |`/plugin`|Manage Claude Code plugins|
+|`/reload-plugins`|Hot-reload plugin changes without restarting the session|
 |`/terminal-setup`|Configure terminal keybindings (Shift+Enter etc.)|
 |`/keybindings`|Open or create keybindings configuration|
 |`/sandbox`|Toggle sandbox mode|
@@ -303,6 +305,7 @@ Requires `gh` CLI installed and authenticated.
 |Flag|Example|Notes|
 |---|---|---|
 |`--model`|`claude --model claude-opus-4-6 "query"`|Override default model|
+|`--name` / `-n`|`claude -n "auth-refactor"`|Set a display name for the session (shown in `/resume` picker and terminal title)|
 |`--continue` / `-c`|`claude -c`|Resume most recent session|
 |`--resume` / `-r`|`claude -r auth-refactor`|Resume by ID or name|
 |`--from-pr`|`claude --from-pr 123`|Resume session linked to a PR|
@@ -316,6 +319,7 @@ Requires `gh` CLI installed and authenticated.
 |`--agents`|`claude --agents '{...}'`|Define inline subagents via JSON|
 |`--mcp-config`|`claude --mcp-config ./mcp.json`|Load MCP servers from file|
 |`--remote`|`claude --remote`|Create web session on claude.ai|
+|`--remote-control` / `--rc`|`claude --remote-control "My Project"`|Start interactive session with Remote Control enabled (controllable from claude.ai / Claude app). Optional name argument|
 |`--teleport`|`claude --teleport`|Resume a web session in local terminal|
 |`--agent`|`claude --agent my-custom-agent`|Specify a subagent for the session|
 |`--allow-dangerously-skip-permissions`|`claude --allow-dangerously-skip-permissions`|Enable permission bypass as option (compose with `--permission-mode`)|
@@ -323,6 +327,7 @@ Requires `gh` CLI installed and authenticated.
 |`--chrome` / `--no-chrome`|`claude --chrome`|Enable/disable Chrome browser integration|
 |`--debug`|`claude --debug "api,mcp"`|Debug mode with optional category filter|
 |`--disable-slash-commands`|`claude --disable-slash-commands`|Disable all skills/commands for session|
+|`--effort`|`claude --effort high`|Set thinking effort for the session: `low`, `medium`, `high`, `max` (Opus 4.6 only). Session-scoped; does not persist to settings|
 |`--fallback-model`|`claude -p --fallback-model sonnet "query"`|Auto-fallback when default model overloaded (print mode)|
 |`--fork-session`|`claude -r abc123 --fork-session`|Create new session ID when resuming|
 |`--ide`|`claude --ide`|Auto-connect to IDE on startup|
@@ -392,6 +397,7 @@ claude -p \
 |`Alt+T` / `Option+T`|Toggle extended thinking|
 |`\` + `Enter`|New line in prompt (works everywhere)|
 |`Ctrl+F`|Kill background agents (requires second press to confirm)|
+|`Ctrl+U`|Exit bash mode (when `!` prompt is empty — alternative to `Escape` / `Backspace`)|
 |`Shift+Enter`|New line (iTerm2, WezTerm, Ghostty, Kitty)|
 
 > Run `/terminal-setup` if `Shift+Enter` does not work in your terminal.
@@ -449,6 +455,8 @@ claude --agents '{
 }
 ```
 
+**Available hook types:** `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd`, `PostCompact` (fires after `/compact`), `InstructionsLoaded` (fires when `CLAUDE.md` / `.claude/rules/*.md` load), `Elicitation` / `ElicitationResult` (intercept and override MCP elicitation responses).
+
 ---
 
 ### 2.14 Environment Variables
@@ -468,6 +476,11 @@ claude --agents '{
 |`DISABLE_PROMPT_CACHING=1`|Disable prompt caching|
 |`SLASH_COMMAND_TOOL_CHAR_BUDGET`|Override skill description character budget (default: 2% of context window, fallback 16k)|
 |`CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`|Load `CLAUDE.md` files from `--add-dir` directories (off by default)|
+|`CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS`|Timeout for `SessionEnd` hooks (previously fixed at 1500 ms)|
+|`CLAUDE_CODE_DISABLE_CRON`|Immediately stop scheduled cron jobs mid-session|
+|`CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS`|Disable built-in Git commit / PR workflow instructions|
+|`CLAUDE_CODE_PLUGIN_CACHE_DIR`|Override the default plugin cache directory|
+|`NODE_EXTRA_CA_CERTS`|Path to corporate proxy / custom CA certificate bundle (standard Node.js var, now explicitly supported)|
 
 ---
 
@@ -490,9 +503,11 @@ claude --agents '{
 |`--debug`|`gemini --debug`|Verbose tool + request logging|
 |`--checkpointing`|`gemini --checkpointing`|Auto-checkpoint before file writes|
 |`--admin-policy`|`gemini --admin-policy ./admin.json`|Supplemental administrator policy file|
+|`--acp`|`gemini --acp`|Enable Agent Communication Protocol support (renamed from ~~`--experimental-acp`~~)|
 |~~`--yolo`~~|—|**Deprecated**: use `--approval-mode=yolo`|
 |~~`--all-files` / `-a`~~|—|**Deprecated**: use `@` from within the CLI|
 |~~`--allowed-tools`~~|—|**Deprecated**: use the policy engine|
+|~~`--experimental-acp`~~|—|**Deprecated**: use `--acp`|
 
 > **`SANDBOX_FLAGS`** env var: pass custom flags to Docker/Podman when using `--sandbox` (e.g. `SANDBOX_FLAGS="--memory=4g"`).
 
