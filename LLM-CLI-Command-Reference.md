@@ -122,7 +122,7 @@ Branch naming: feat/<ticket>-<slug>
 
 |Concept|Claude Code|Gemini CLI|
 |---|---|---|
-|Project-scoped storage|`.claude/skills/<n>/SKILL.md`|`.gemini/commands/<n>.toml`|
+|Project-scoped storage|`.claude/skills/<n>/SKILL.md`|`.gemini/skills/<n>/SKILL.md` (v0.26.0+) or `.gemini/commands/<n>.toml`|
 |Legacy format (still works)|`.claude/commands/<n>.md`|—|
 |Global (user-scoped)|`~/.claude/skills/`|`~/.gemini/commands/`|
 |Invoke|`/name` or `/name arg`|`/name` or `/name arg`|
@@ -281,6 +281,7 @@ Requires `gh` CLI installed and authenticated.
 |`/ide`|Manage IDE integrations (VS Code, JetBrains)|
 |`/chrome`|Configure Chrome browser integration|
 |`/remote-control`|Make session available for remote control from claude.ai. Alias: `/rc`|
+|`/remote-env`|Configure environment variables for remote sessions|
 |`/desktop`|Continue session in Claude Code Desktop app. Alias: `/app`|
 |`/tasks`|List and manage background tasks|
 |`/feedback [report]`|Submit feedback. Alias: `/bug`|
@@ -455,7 +456,7 @@ claude --agents '{
 }
 ```
 
-**Available hook types:** `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd`, `PostCompact` (fires after `/compact`), `InstructionsLoaded` (fires when `CLAUDE.md` / `.claude/rules/*.md` load), `Elicitation` / `ElicitationResult` (intercept and override MCP elicitation responses).
+**Available hook types:** `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd`, `PostCompact` (fires after `/compact`), `InstructionsLoaded` (fires when `CLAUDE.md` / `.claude/rules/*.md` load), `Elicitation` / `ElicitationResult` (intercept and override MCP elicitation responses), `Setup` (triggered via `--init` / `--init-only` / `--maintenance`), `ConfigChange` (fires when configuration changes during session), `WorktreeCreate` / `WorktreeRemove` (worktree lifecycle events).
 
 ---
 
@@ -481,6 +482,13 @@ claude --agents '{
 |`CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS`|Disable built-in Git commit / PR workflow instructions|
 |`CLAUDE_CODE_PLUGIN_CACHE_DIR`|Override the default plugin cache directory|
 |`NODE_EXTRA_CA_CERTS`|Path to corporate proxy / custom CA certificate bundle (standard Node.js var, now explicitly supported)|
+|`ENABLE_CLAUDEAI_MCP_SERVERS`|Set `=false` to opt out of claude.ai MCP servers being made available in sessions|
+|`CLAUDE_CODE_DISABLE_TERMINAL_TITLE`|Disable terminal title updates during sessions|
+|`CLAUDE_CODE_SIMPLE`|Minimal mode — disables MCP, attachments, hooks, and CLAUDE.md loading|
+|`CLAUDE_CODE_DISABLE_1M_CONTEXT`|Disable the 1M-token context window (defaults to enabled on Opus for Max / Team / Enterprise)|
+|`CLAUDE_CODE_TMPDIR`|Override the default temporary directory for the session|
+|`ENABLE_TOOL_SEARCH`|Enable tool search for large MCP tool sets (auto-enabled when tool descriptions exceed 10% of context)|
+|`CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS`|Timeout for plugin marketplace git operations (default 120 000 ms)|
 
 ---
 
@@ -541,6 +549,7 @@ claude --agents '{
 |`/init`|Initialise project context|
 |`/extensions`|Manage installed extensions|
 |`/restore`|Restore previous state|
+|`/rewind`|Undo the last operation and step back to a prior state (added v0.26.0)|
 |`/bug`|File an issue in the Gemini CLI GitHub repo|
 |`/quit`|Exit session|
 
